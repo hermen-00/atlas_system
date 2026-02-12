@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 import os
 
@@ -5,7 +6,7 @@ app = Flask(__name__)
 
 # --- CONFIGURAÇÕES ---
 # Pega a porta do ambiente ou usa 5000 se estiver no Termux local
-PORT = int(os.environ.get("PORT", 5000))
+PORT = int(os.environ.get("PORT", 1000))
 
 @app.route('/')
 def home():
