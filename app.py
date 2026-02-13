@@ -1,56 +1,42 @@
-from flask import Flask, request, jsonify
 import os
-from database import iniciar_banco, buscar_produto, adicionar_produto
+from flask import Flask, jsonify, request
+from models import db, Empresa, Produto
+from decimal import Decimal
 
 app = Flask(__name__)
 
-# Inicia o banco assim que o servidor liga
-iniciar_banco()
+# CONFIGURAÇÃO DO BANCO DE DADOS
+# Se tiver no Render, usa Postgres. Se tiver no Termux, usa arquivo local.
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///atlas_local.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Inicializa o banco com o app
+db.init_app(app)
+
+# Cria as tabelas na primeira vez que rodar
+with app.app_context():
+    db.create_all()
 
 @app.route('/')
 def home():
-    return "🟢 ATLAS SYSTEM V2: CÉREBRO ATIVO"
+    return "🛡️ ATLAS ENTERPRISE: ONLINE (DB CONNECTED)"
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    print(f"📩 Payload recebido: {data}")
-    
-    # Simulação: Pegando dados como se viessem do WhatsApp
-    # Na vida real, o JSON do WhatsApp é mais complexo, mas vamos simplificar para o teste
-    msg = data.get('msg', '').lower()
-    telefone = data.get('telefone', '')
-    empresa_id = 1 # Por enquanto, vamos fingir que é tudo da Empresa 1 (Seu José)
-
-    resposta = ""
-
-    # --- LÓGICA DE ADMIN ---
-    if msg.startswith("#admin add"):
-        # Ex: #admin add cimento 500 10
-        partes = msg.split()
-        if len(partes) == 5:
-            nome = partes[2]
-            preco = float(partes[3])
-            estoque = int(partes[4])
-            if adicionar_produto(empresa_id, nome, preco, estoque):
-                resposta = f"✅ Produto {nome} adicionado com sucesso!"
-            else:
-                resposta = "❌ Erro ao adicionar."
-        else:
-            resposta = "⚠️ Formato errado. Use: #admin add [nome] [preco] [qtd]"
-
-    # --- LÓGICA DE CLIENTE ---
-    else:
-        # Tenta achar o produto
-        produto = buscar_produto(empresa_id, msg)
-        if produto:
-            nome_prod, preco_prod, estoque_prod = produto
-            resposta = f"🔎 Encontrei {nome_prod}!\n💰 Preço: {preco_prod} MT\n📦 Estoque: {estoque_prod}"
-        else:
-            resposta = "🤖 Olá! Digite o nome de um produto para ver o preço."
-
-    return jsonify({"resposta_atlas": resposta})
+# Rota de teste para ver se o banco grava de verdade
+@app.route('/test-db', methods=['GET'])
+def teste_db():
+    try:
+        # Tenta criar uma empresa de teste
+        nova_empresa = Empresa(nome="Loja Teste", telefone="841234567")
+        db.session.add(nova_empresa)
+        db.session.commit()
+        return jsonify({"status": "sucesso", "id": nova_empresa.id})
+    except Exception as e:
+        return jsonify({"status": "erro", "detalhe": str(e)})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
